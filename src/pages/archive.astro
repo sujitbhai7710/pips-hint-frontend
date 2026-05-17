@@ -1,32 +1,6 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
-import CalendarPicker from '../components/svelte/CalendarPicker.svelte';
-import PuzzleCard from '../components/svelte/PuzzleCard.svelte';
-import { api, type ArchiveEntry, type PuzzleResponse } from '../lib/api';
-
-// Fetch archive data
-let archive: ArchiveEntry[] = [];
-let selectedDatePuzzle: PuzzleResponse | null = null;
-let selectedDate: string | null = null;
-
-try {
-  const archiveData = await api.getArchive();
-  archive = archiveData.dates || [];
-} catch (e) {
-  console.error('Failed to fetch archive:', e);
-}
-
-// If a date is requested via query param, fetch that puzzle
-const url = new URL(Astro.request?.url || 'http://localhost/archive');
-const dateParam = url.searchParams.get('date');
-if (dateParam) {
-  try {
-    selectedDatePuzzle = await api.getByDate(dateParam);
-    selectedDate = dateParam;
-  } catch {
-    selectedDate = dateParam;
-  }
-}
+import ArchiveBrowser from '../components/svelte/ArchiveBrowser.svelte';
 ---
 
 <BaseLayout title="Pips Puzzle Archive - Browse Past Puzzles | Pips Hint" description="Browse the complete archive of NYT Pips puzzles. Find hints and answers for any past date.">
@@ -37,33 +11,11 @@ if (dateParam) {
           <span class="gradient-text">Puzzle Archive</span>
         </h1>
         <p class="text-lg text-gray-600 dark:text-gray-400">
-          Browse {archive.length} puzzles from the complete collection
+          Browse the complete collection of past puzzles
         </p>
       </div>
 
-      {selectedDatePuzzle ? (
-        <div class="mb-8">
-          <div class="flex items-center gap-3 mb-6">
-            <a href="/archive" class="text-sm text-primary-600 dark:text-primary-400 hover:underline flex items-center gap-1">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-              </svg>
-              Back to Archive
-            </a>
-            <span class="text-sm text-gray-500 dark:text-gray-400">Viewing: {selectedDate}</span>
-          </div>
-          <PuzzleCard client:load puzzle={selectedDatePuzzle} />
-        </div>
-      ) : archive.length > 0 ? (
-        <CalendarPicker client:visible archive={archive} onDateSelect={(date) => window.location.href = `/archive?date=${date}`} />
-      ) : (
-        <div class="text-center py-16">
-          <svg class="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-          </svg>
-          <p class="text-gray-500 dark:text-gray-400">No archive data available.</p>
-        </div>
-      )}
+      <ArchiveBrowser client:load />
     </div>
   </section>
 </BaseLayout>
