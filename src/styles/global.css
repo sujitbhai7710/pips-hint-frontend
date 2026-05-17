@@ -86,27 +86,43 @@ body {
 .delay-300 { animation-delay: 300ms; }
 .delay-400 { animation-delay: 400ms; }
 
-/* Domino grid cell */
-.domino-cell {
+/* Puzzle Grid Styles */
+.puzzle-grid-wrapper {
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.puzzle-cell {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 700;
-  font-size: 1.25rem;
-  border: 1px solid #e5e7eb;
-  aspect-ratio: 1;
   position: relative;
+  font-variant-numeric: tabular-nums;
+  transition: background-color 0.15s ease;
+  box-sizing: border-box;
 }
 
-.dark .domino-cell {
-  border-color: #374151;
+.puzzle-cell:hover {
+  filter: brightness(0.97);
 }
 
-/* Region border styles */
-.region-top { border-top: 3px solid #2563eb !important; }
-.region-bottom { border-bottom: 3px solid #2563eb !important; }
-.region-left { border-left: 3px solid #2563eb !important; }
-.region-right { border-right: 3px solid #2563eb !important; }
+.region-label {
+  line-height: 1;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Domino Tile Styles */
+.domino-tile {
+  transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+  cursor: default;
+}
+
+.domino-tile:hover {
+  transform: scale(1.08);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
 
 /* Dark mode overrides */
 .dark {
