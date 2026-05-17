@@ -1,0 +1,54 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="Custom Pips Puzzle Builder | Pips Hint" description="Create and solve custom Pips puzzles with our interactive puzzle builder tool.">
+  <section class="py-16 xl:py-20">
+    <div class="container mx-auto px-4 xl:px-6">
+      <div class="text-center mb-10">
+        <h1 class="text-3xl md:text-4xl font-bold mb-2">
+          <span class="gradient-text">Custom Pips</span>
+        </h1>
+        <p class="text-lg text-gray-600 dark:text-gray-400">
+          Create and explore custom Pips puzzles
+        </p>
+      </div>
+
+      <div class="max-w-2xl mx-auto">
+        <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-8 text-center">
+          <svg class="w-16 h-16 text-primary-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z" />
+          </svg>
+          <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-3">Custom Puzzle Builder</h2>
+          <p class="text-gray-600 dark:text-gray-400 mb-6">
+            Our custom puzzle builder is coming soon! You'll be able to create your own Pips puzzles with custom grids, dominoes, and region constraints.
+          </p>
+          <p class="text-sm text-gray-500 dark:text-gray-500 mb-6">
+            In the meantime, try our unlimited puzzle mode for endless solving practice.
+          </p>
+          <a href="/pips/unlimited" class="gradient-btn">Play Unlimited Pips</a>
+        </div>
+
+        <!-- How Custom Pips Will Work -->
+        <div class="mt-8 grid gap-4 md:grid-cols-2">
+          <div class="rounded-xl border border-gray-200 dark:border-gray-700 p-5 bg-white dark:bg-gray-800">
+            <h3 class="font-semibold text-gray-900 dark:text-gray-100 mb-2">Design Your Grid</h3>
+            <p class="text-sm text-gray-600 dark:text-gray-400">Choose your grid size and layout. Set up regions with custom constraints like sums, equals, and inequalities.</p>
+          </div>
+          <div class="rounded-xl border border-gray-200 dark:border-gray-700 p-5 bg-white dark:bg-gray-800">
+            <h3 class="font-semibold text-gray-900 dark:text-gray-100 mb-2">Place Your Dominoes</h3>
+            <p class="text-sm text-gray-600 dark:text-gray-400">Add dominoes with specific values to create challenging puzzles. Our solver will verify your puzzle has a unique solution.</p>
+          </div>
+          <div class="rounded-xl border border-gray-200 dark:border-gray-700 p-5 bg-white dark:bg-gray-800">
+            <h3 class="font-semibold text-gray-900 dark:text-gray-100 mb-2">Share & Challenge</h3>
+            <p class="text-sm text-gray-600 dark:text-gray-400">Share your custom puzzles with friends and the community. See who can solve it fastest!</p>
+          </div>
+          <div class="rounded-xl border border-gray-200 dark:border-gray-700 p-5 bg-white dark:bg-gray-800">
+            <h3 class="font-semibold text-gray-900 dark:text-gray-100 mb-2">AI Hints</h3>
+            <p class="text-sm text-gray-600 dark:text-gray-400">Get AI-powered hints and explanations for your custom puzzles, just like the daily puzzles.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
