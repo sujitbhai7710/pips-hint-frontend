@@ -1,8 +1,8 @@
 <script lang="ts">
   import type { ArchiveEntry, PuzzleResponse } from '../../lib/api';
   import { api, formatDate } from '../../lib/api';
-  import { solvePuzzle, computeDominoPlacements } from '../../lib/pipsSolver';
-  import type { Solution, DominoPlacementResult } from '../../lib/pipsSolver';
+  import { solvePuzzle } from '../../lib/pipsSolver';
+  import type { SolveResult } from '../../lib/pipsSolver';
   import PuzzleGrid from './PuzzleGrid.svelte';
   import DominoTile from './DominoTile.svelte';
 
@@ -16,8 +16,7 @@
   let showHint = $state(false);
   let showAnswer = $state(false);
   let solvingAll = $state(false);
-  let solvedSolution = $state<Solution | null>(null);
-  let dominoPlacements = $state<DominoPlacementResult[]>([]);
+  let solveResult = $state<SolveResult | null>(null);
   let selectedDominoIndex = $state<number | null>(null);
 
   let months = $derived(() => {
@@ -46,15 +45,12 @@
     'lg'
   );
 
-  let effectiveSolution = $derived(
-    solvedSolution || (currentPuzzle?.solution && currentPuzzle.solution.length > 0 ? currentPuzzle.solution : null)
-  );
+  let effectiveSolution = $derived(solveResult?.solution ?? null);
 
   // Reset solution state when tab changes
   $effect(() => {
     activeTab;
-    solvedSolution = null;
-    dominoPlacements = [];
+    solveResult = null;
     selectedDominoIndex = null;
   });
 
@@ -75,8 +71,7 @@
     puzzleError = null;
     showHint = false;
     showAnswer = false;
-    solvedSolution = null;
-    dominoPlacements = [];
+    solveResult = null;
     selectedDominoIndex = null;
 
     try {
@@ -93,11 +88,10 @@
     solvingAll = true;
     try {
       await new Promise(resolve => setTimeout(resolve, 50));
-      const sol = solvePuzzle(currentPuzzle);
-      if (sol) {
-        solvedSolution = sol;
+      const result = solvePuzzle(currentPuzzle);
+      if (result) {
+        solveResult = result;
         showAnswer = true;
-        dominoPlacements = computeDominoPlacements(currentPuzzle, sol);
       } else {
         puzzleError = 'Could not solve this puzzle automatically.';
       }
@@ -109,7 +103,7 @@
   }
 
   function handleDominoClick(dominoIndex: number) {
-    if (solvedSolution && dominoPlacements.length > 0) {
+    if (solveResult) {
       selectedDominoIndex = selectedDominoIndex === dominoIndex ? null : dominoIndex;
     } else {
       handleSolveAll();
@@ -140,7 +134,7 @@
     <!-- Show selected puzzle -->
     <div>
       <button
-        onclick={() => { selectedPuzzle = null; puzzleError = null; solvedSolution = null; }}
+        onclick={() => { selectedPuzzle = null; puzzleError = null; solveResult = null; }}
         class="flex items-center gap-1 text-sm text-primary-600 dark:text-primary-400 hover:underline mb-4"
       >
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -189,7 +183,7 @@
             <div class="mb-6 flex flex-col sm:flex-row gap-3">
               <button
                 onclick={handleSolveAll}
-                disabled={solvingAll || !!solvedSolution}
+                disabled={solvingAll || !!solveResult}
                 class="flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-lg font-semibold text-white bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg transition-all"
               >
                 {#if solvingAll}
@@ -198,7 +192,7 @@
                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
                   Solving...
-                {:else if solvedSolution}
+                {:else if solveResult}
                   <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                     <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
                   </svg>
@@ -210,9 +204,9 @@
                   Solve All - Reveal Complete Solution
                 {/if}
               </button>
-              {#if solvedSolution}
+              {#if solveResult}
                 <button
-                  onclick={() => { solvedSolution = null; dominoPlacements = []; selectedDominoIndex = null; showAnswer = false; }}
+                  onclick={() => { solveResult = null; selectedDominoIndex = null; showAnswer = false; }}
                   class="px-6 py-3 rounded-lg font-semibold border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all"
                 >
                   Reset
@@ -222,16 +216,14 @@
 
             <!-- Visual Puzzle Grid -->
             <div class="mb-6">
-              <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">
-                Puzzle Grid
-              </h3>
+              <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Puzzle Grid</h3>
               <div class="flex justify-center">
                 <PuzzleGrid
                   puzzle={currentPuzzle}
                   {cellSize}
-                  showSolution={showAnswer || !!solvedSolution}
+                  showSolution={showAnswer || !!solveResult}
                   solution={effectiveSolution}
-                  dominoPlacements={dominoPlacements}
+                  dominoPlacements={solveResult?.placements ?? []}
                   selectedDominoIndex={selectedDominoIndex}
                 />
               </div>
@@ -245,10 +237,10 @@
               <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">Click a domino to highlight its placement on the grid</p>
               <div class="flex flex-wrap gap-2 justify-center sm:justify-start">
                 {#each (currentPuzzle.dominoes || []) as domino, i}
-                  {@const placement = dominoPlacements.find(p => p.dominoIndex === i)}
+                  {@const placement = solveResult?.placements?.find(p => p.dominoIndex === i)}
                   <button
                     onclick={() => handleDominoClick(i)}
-                    class="transform transition-all {selectedDominoIndex === i ? 'scale-110 ring-2 ring-yellow-400 ring-offset-2' : 'hover:scale-105'} cursor-pointer"
+                    class="transform transition-all duration-200 {selectedDominoIndex === i ? 'scale-110 ring-2 ring-yellow-400 ring-offset-2 dark:ring-offset-gray-800' : 'hover:scale-105'} cursor-pointer"
                   >
                     <DominoTile
                       a={domino[0]}
@@ -296,7 +288,7 @@
             {/if}
 
             <!-- Solution Display (when solved) -->
-            {#if solvedSolution}
+            {#if solveResult}
               <div class="mb-6 p-4 rounded-lg border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20">
                 <h4 class="font-bold text-green-700 dark:text-green-400 mb-3 flex items-center gap-2">
                   <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
@@ -309,8 +301,8 @@
                     puzzle={currentPuzzle}
                     {cellSize}
                     showSolution={true}
-                    solution={solvedSolution}
-                    dominoPlacements={dominoPlacements}
+                    solution={solveResult.solution}
+                    dominoPlacements={solveResult.placements}
                     selectedDominoIndex={selectedDominoIndex}
                   />
                 </div>
@@ -336,7 +328,7 @@
               {/if}
 
               <button
-                onclick={() => { showAnswer = !showAnswer; if (showAnswer) showHint = false; if (showAnswer && !effectiveSolution) handleSolveAll(); }}
+                onclick={() => { showAnswer = !showAnswer; if (showAnswer) showHint = false; if (showAnswer && !solveResult) handleSolveAll(); }}
                 class="w-full flex items-center justify-between p-4 rounded-lg border border-accent-600/30 dark:border-accent-600/50 bg-gradient-to-r from-accent-500/5 to-primary-500/5 dark:from-accent-700/10 dark:to-primary-700/10 hover:from-accent-500/10 hover:to-primary-500/10 transition-all"
               >
                 <span class="font-semibold text-accent-600 dark:text-accent-400">{showAnswer ? 'Hide Answer' : 'Show Answer'}</span>
@@ -344,22 +336,16 @@
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                 </svg>
               </button>
-              {#if showAnswer && !solvedSolution}
+              {#if showAnswer && !solveResult}
                 <div class="animate-fade-in-up p-4 rounded-lg border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20">
                   <h4 class="font-bold text-green-700 dark:text-green-400 mb-3">Solution</h4>
-                  {#if effectiveSolution}
-                    <div class="flex justify-center">
-                      <PuzzleGrid puzzle={currentPuzzle} {cellSize} showSolution={true} solution={effectiveSolution} dominoPlacements={dominoPlacements} selectedDominoIndex={selectedDominoIndex} />
-                    </div>
-                  {:else}
-                    <div class="flex items-center gap-2 text-gray-500 dark:text-gray-400 text-sm">
-                      <svg class="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none" />
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                      </svg>
-                      Computing solution...
-                    </div>
-                  {/if}
+                  <div class="flex items-center gap-2 text-gray-500 dark:text-gray-400 text-sm">
+                    <svg class="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none" />
+                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Computing solution...
+                  </div>
                 </div>
               {/if}
             </div>

@@ -8,7 +8,7 @@ interface Cell {
   col: number;
 }
 
-interface DominoPlacement {
+export interface DominoPlacementResult {
   dominoIndex: number;
   cell1: Cell;
   cell2: Cell;
@@ -100,23 +100,17 @@ function partialCheck(
       if (region.target == null) return true;
       const currentSum = currentValues.reduce((a, b) => a + b, 0);
       const remaining = totalCells - currentValues.length;
-      // Minimum possible remaining sum (all 0s for pips)
       const minRemaining = remaining * 0;
-      // Maximum possible remaining sum (all 6s for pips)
       const maxRemaining = remaining * 6;
-      // Current sum must not exceed target
       if (currentSum > region.target) return false;
-      // It must still be possible to reach the target
       if (currentSum + minRemaining > region.target) return false;
       if (currentSum + maxRemaining < region.target) return false;
       return true;
     }
     case 'equals': {
-      // All values seen so far must be the same
       return currentValues.every(v => v === currentValues[0]);
     }
     case 'unequal': {
-      // No duplicates among seen values
       const seen = new Set(currentValues);
       return seen.size === currentValues.length;
     }
@@ -135,8 +129,14 @@ function partialCheck(
   }
 }
 
-// Main solver using backtracking
-export function solvePipsPuzzle(puzzle: DifficultyPuzzle): Solution | null {
+// Result of solving a puzzle - includes both the solution grid and domino placements
+export interface SolveResult {
+  solution: Solution;
+  placements: DominoPlacementResult[];
+}
+
+// Main solver using backtracking - returns both solution and domino placements
+export function solvePipsPuzzle(puzzle: DifficultyPuzzle): SolveResult | null {
   const { rows, cols } = getGridSize(puzzle.regions);
   const dominoes = puzzle.dominoes || [];
   const regions = puzzle.regions || [];
@@ -144,10 +144,11 @@ export function solvePipsPuzzle(puzzle: DifficultyPuzzle): Solution | null {
   const validCells = getValidCells(regions);
 
   // Grid: -1 means empty/invalid, otherwise the value
-  // Only valid cells (those in at least one region) need to be filled
   const grid: number[][] = Array.from({ length: rows }, () => Array(cols).fill(-1));
   // Track which dominoes are placed
   const placed: boolean[] = Array(dominoes.length).fill(false);
+  // Track domino placements as we solve
+  const currentPlacements: DominoPlacementResult[] = [];
 
   // Get region values for a region given current grid state
   function getRegionValues(regionIndex: number): number[] {
@@ -207,12 +208,7 @@ export function solvePipsPuzzle(puzzle: DifficultyPuzzle): Solution | null {
 
       const [a, b] = dominoes[di];
 
-      // Try placing domino in 4 orientations:
-      // 1. Horizontal: (row,col)=a, (row,col+1)=b
-      // 2. Horizontal: (row,col)=b, (row,col+1)=a
-      // 3. Vertical: (row,col)=a, (row+1,col)=b
-      // 4. Vertical: (row,col)=b, (row+1,col)=a
-
+      // Try placing domino in 4 orientations
       const orientations: [Cell, Cell, number, number][] = [];
 
       // Horizontal placements - both cells must be valid
@@ -236,6 +232,14 @@ export function solvePipsPuzzle(puzzle: DifficultyPuzzle): Solution | null {
         grid[cell1.row][cell1.col] = val1;
         grid[cell2.row][cell2.col] = val2;
         placed[di] = true;
+        const placementIdx = currentPlacements.length;
+        currentPlacements.push({
+          dominoIndex: di,
+          cell1,
+          cell2,
+          value1: val1,
+          value2: val2
+        });
 
         // Check constraints
         if (checkConstraints([cell1, cell2])) {
@@ -246,6 +250,7 @@ export function solvePipsPuzzle(puzzle: DifficultyPuzzle): Solution | null {
         grid[cell1.row][cell1.col] = -1;
         grid[cell2.row][cell2.col] = -1;
         placed[di] = false;
+        currentPlacements.splice(placementIdx, 1);
       }
     }
 
@@ -255,19 +260,14 @@ export function solvePipsPuzzle(puzzle: DifficultyPuzzle): Solution | null {
   const success = backtrack();
   if (!success) return null;
 
-  // Return a copy of the grid
-  return grid.map(row => [...row]);
+  // Return both the solution grid and the placements
+  return {
+    solution: grid.map(row => [...row]),
+    placements: [...currentPlacements]
+  };
 }
 
-// Compute domino placements from a solution grid
-export interface DominoPlacementResult {
-  dominoIndex: number;
-  cell1: Cell;
-  cell2: Cell;
-  value1: number;
-  value2: number;
-}
-
+// Compute domino placements from a solution grid (fallback method)
 export function computeDominoPlacements(
   puzzle: DifficultyPuzzle,
   solution: Solution
@@ -277,96 +277,102 @@ export function computeDominoPlacements(
   const dominoes = puzzle.dominoes || [];
   const placements: DominoPlacementResult[] = [];
   const visited = Array.from({ length: rows }, () => Array(cols).fill(false));
-
-  // Build a map from domino pair to indices
-  // Each domino can match [a,b] or [b,a]
   const usedDominoes = new Set<number>();
 
+  // Build adjacency pairs and try matching
+  // First, collect all possible pairs of adjacent valid cells
+  const pairs: { r1: number; c1: number; r2: number; c2: number; v1: number; v2: number }[] = [];
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
-      // Skip cells that are not part of the puzzle or already visited
-      if (visited[r][c] || !validCells.has(`${r},${c}`)) continue;
-      // Skip cells with no solution value
+      if (!validCells.has(`${r},${c}`)) continue;
       if (solution[r][c] === -1 || solution[r][c] === undefined) continue;
-
-      // Try to find an adjacent cell to form a domino
-      const val = solution[r][c];
-      let found = false;
-
-      // Try right neighbor
-      if (c + 1 < cols && !visited[r][c + 1] && validCells.has(`${r},${c + 1}`)) {
-        const rightVal = solution[r][c + 1];
-        if (rightVal !== -1 && rightVal !== undefined) {
-          // Find matching domino
-          for (let di = 0; di < dominoes.length; di++) {
-            if (usedDominoes.has(di)) continue;
-            const [a, b] = dominoes[di];
-            if ((a === val && b === rightVal) || (b === val && a === rightVal)) {
-              usedDominoes.add(di);
-              placements.push({
-                dominoIndex: di,
-                cell1: { row: r, col: c },
-                cell2: { row: r, col: c + 1 },
-                value1: val,
-                value2: rightVal
-              });
-              visited[r][c] = true;
-              visited[r][c + 1] = true;
-              found = true;
-              break;
-            }
-          }
-        }
-        if (found) continue;
+      // Right neighbor
+      if (c + 1 < cols && validCells.has(`${r},${c + 1}`) && solution[r][c + 1] !== -1 && solution[r][c + 1] !== undefined) {
+        pairs.push({ r1: r, c1: c, r2: r, c2: c + 1, v1: solution[r][c], v2: solution[r][c + 1] });
       }
-
-      // Try bottom neighbor
-      if (r + 1 < rows && !visited[r + 1][c] && validCells.has(`${r + 1},${c}`)) {
-        const bottomVal = solution[r + 1][c];
-        if (bottomVal !== -1 && bottomVal !== undefined) {
-          for (let di = 0; di < dominoes.length; di++) {
-            if (usedDominoes.has(di)) continue;
-            const [a, b] = dominoes[di];
-            if ((a === val && b === bottomVal) || (b === val && a === bottomVal)) {
-              usedDominoes.add(di);
-              placements.push({
-                dominoIndex: di,
-                cell1: { row: r, col: c },
-                cell2: { row: r + 1, col: c },
-                value1: val,
-                value2: bottomVal
-              });
-              visited[r][c] = true;
-              visited[r + 1][c] = true;
-              found = true;
-              break;
-            }
-          }
-        }
+      // Bottom neighbor
+      if (r + 1 < rows && validCells.has(`${r + 1},${c}`) && solution[r + 1][c] !== -1 && solution[r + 1][c] !== undefined) {
+        pairs.push({ r1: r, c1: c, r2: r + 1, c2: c, v1: solution[r][c], v2: solution[r + 1][c] });
       }
     }
   }
+
+  // Use backtracking to find a valid matching of pairs to dominoes
+  // that covers every valid cell exactly once
+  function matchBacktrack(pairIdx: number, coveredCells: Set<string>, usedDominoSet: Set<number>, currentPlacements: DominoPlacementResult[]): boolean {
+    // Check if all valid cells are covered
+    if (coveredCells.size === validCells.size) return true;
+
+    // Skip pairs where cells are already covered
+    while (pairIdx < pairs.length) {
+      const pair = pairs[pairIdx];
+      const key1 = `${pair.r1},${pair.c1}`;
+      const key2 = `${pair.r2},${pair.c2}`;
+
+      if (!coveredCells.has(key1) && !coveredCells.has(key2)) {
+        // Try matching this pair to an unused domino
+        for (let di = 0; di < dominoes.length; di++) {
+          if (usedDominoSet.has(di)) continue;
+          const [a, b] = dominoes[di];
+          if ((a === pair.v1 && b === pair.v2) || (b === pair.v1 && a === pair.v2)) {
+            // Try this match
+            coveredCells.add(key1);
+            coveredCells.add(key2);
+            usedDominoSet.add(di);
+            currentPlacements.push({
+              dominoIndex: di,
+              cell1: { row: pair.r1, col: pair.c1 },
+              cell2: { row: pair.r2, col: pair.c2 },
+              value1: pair.v1,
+              value2: pair.v2
+            });
+
+            if (matchBacktrack(pairIdx + 1, coveredCells, usedDominoSet, currentPlacements)) {
+              return true;
+            }
+
+            // Undo
+            coveredCells.delete(key1);
+            coveredCells.delete(key2);
+            usedDominoSet.delete(di);
+            currentPlacements.pop();
+          }
+        }
+      }
+
+      pairIdx++;
+    }
+
+    return false;
+  }
+
+  const coveredCells = new Set<string>();
+  const usedDominoSet = new Set<number>();
+  matchBacktrack(0, coveredCells, usedDominoSet, placements);
 
   return placements;
 }
 
 // Cache for solved puzzles
-const solutionCache = new Map<string, { solution: Solution | null; timestamp: number }>();
+const solutionCache = new Map<string, { result: SolveResult | null; timestamp: number }>();
 
-// Solve with caching
-export function solvePuzzle(puzzle: DifficultyPuzzle): Solution | null {
+// Solve with caching - returns SolveResult with both solution and placements
+export function solvePuzzle(puzzle: DifficultyPuzzle): SolveResult | null {
   const cacheKey = `${puzzle.id}-${puzzle.dominoes?.length || 0}`;
   const cached = solutionCache.get(cacheKey);
   if (cached && Date.now() - cached.timestamp < 300000) { // 5 min cache
-    return cached.solution;
+    return cached.result;
   }
 
-  // If the puzzle already has a solution, use it
+  // If the puzzle already has a solution, use it and compute placements
   if (puzzle.solution && puzzle.solution.length > 0) {
-    return puzzle.solution;
+    const placements = computeDominoPlacements(puzzle, puzzle.solution);
+    const result = { solution: puzzle.solution, placements };
+    solutionCache.set(cacheKey, { result, timestamp: Date.now() });
+    return result;
   }
 
-  const solution = solvePipsPuzzle(puzzle);
-  solutionCache.set(cacheKey, { solution, timestamp: Date.now() });
-  return solution;
+  const result = solvePipsPuzzle(puzzle);
+  solutionCache.set(cacheKey, { result, timestamp: Date.now() });
+  return result;
 }
