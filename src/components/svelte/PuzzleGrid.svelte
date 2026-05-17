@@ -1,13 +1,24 @@
 <script lang="ts">
   import type { Region, DifficultyPuzzle } from '../../lib/api';
+  import type { DominoPlacementResult } from '../../lib/pipsSolver';
 
   interface Props {
     puzzle: DifficultyPuzzle;
     showSolution?: boolean;
     cellSize?: 'sm' | 'md' | 'lg';
+    solution?: number[][] | null;
+    dominoPlacements?: DominoPlacementResult[];
+    selectedDominoIndex?: number | null;
   }
 
-  let { puzzle, showSolution = false, cellSize = 'md' }: Props = $props();
+  let {
+    puzzle,
+    showSolution = false,
+    cellSize = 'md',
+    solution = null,
+    dominoPlacements = [],
+    selectedDominoIndex = null
+  }: Props = $props();
 
   const REGION_COLORS = [
     { bg: '#dbeafe', border: '#93c5fd', label: '#1e3a8a' },  // blue
@@ -29,6 +40,20 @@
     { bg: '#431407', border: '#ea580c', label: '#fdba74' },  // orange
     { bg: '#1e1b4b', border: '#6366f1', label: '#a5b4fc' },  // indigo
     { bg: '#4c0519', border: '#e11d48', label: '#fda4af' },  // rose
+  ];
+
+  // Domino highlight colors (for highlighting which domino covers which cells)
+  const DOMINO_HIGHLIGHT_COLORS = [
+    'rgba(59, 130, 246, 0.3)',   // blue
+    'rgba(168, 85, 247, 0.3)',   // purple
+    'rgba(16, 185, 129, 0.3)',   // emerald
+    'rgba(244, 63, 94, 0.3)',    // rose
+    'rgba(245, 158, 11, 0.3)',   // amber
+    'rgba(6, 182, 212, 0.3)',    // cyan
+    'rgba(99, 102, 241, 0.3)',   // indigo
+    'rgba(20, 184, 166, 0.3)',   // teal
+    'rgba(249, 115, 22, 0.3)',   // orange
+    'rgba(236, 72, 153, 0.3)',   // pink
   ];
 
   const INNER_BORDER_LIGHT = '#e5e7eb';
@@ -81,6 +106,18 @@
 
   let cells = $derived(cellMap());
 
+  // Build domino placement map: "row,col" -> dominoIndex
+  let dominoCellMap = $derived(() => {
+    const map = new Map<string, number>();
+    for (const placement of dominoPlacements) {
+      map.set(`${placement.cell1.row},${placement.cell1.col}`, placement.dominoIndex);
+      map.set(`${placement.cell2.row},${placement.cell2.col}`, placement.dominoIndex);
+    }
+    return map;
+  });
+
+  let dominoCells = $derived(dominoCellMap());
+
   // Get region label text
   function getRegionLabel(region: Region): string {
     switch (region.type) {
@@ -114,13 +151,25 @@
 
   // Get solution value for a cell
   function getSolutionValue(row: number, col: number): number | undefined {
-    if (!showSolution || !puzzle.solution) return undefined;
-    const sol = puzzle.solution;
+    // Prefer explicitly passed solution, then puzzle.solution
+    const sol = solution || puzzle.solution;
+    if (!showSolution || !sol) return undefined;
     if (row < sol.length && col < sol[row].length) {
       const val = sol[row][col];
       return Array.isArray(val) ? val[0] : val;
     }
     return undefined;
+  }
+
+  // Check if cell is part of the selected domino
+  function isDominoHighlighted(row: number, col: number): boolean {
+    if (selectedDominoIndex === null) return false;
+    return dominoCells.get(`${row},${col}`) === selectedDominoIndex;
+  }
+
+  // Get domino index for a cell
+  function getDominoIndex(row: number, col: number): number | null {
+    return dominoCells.get(`${row},${col}`) ?? null;
   }
 
   // Compute cell styles (handles dark mode reactively)
@@ -137,11 +186,26 @@
     const thickBorder = colors?.border ?? (isDark ? '#4b5563' : '#2563eb');
     const thinBorder = isDark ? INNER_BORDER_DARK : INNER_BORDER_LIGHT;
 
+    // Add domino highlight if applicable
+    let extraBg = '';
+    const dIdx = getDominoIndex(row, col);
+    if (dIdx !== null && dominoPlacements.length > 0) {
+      if (selectedDominoIndex !== null && dIdx === selectedDominoIndex) {
+        // Strong highlight for selected domino
+        extraBg = 'background-image: linear-gradient(135deg, rgba(250, 204, 21, 0.4), rgba(250, 204, 21, 0.2));';
+      } else if (selectedDominoIndex === null) {
+        // Subtle highlight showing all domino placements
+        const highlightColor = DOMINO_HIGHLIGHT_COLORS[dIdx % DOMINO_HIGHLIGHT_COLORS.length];
+        extraBg = `background-image: linear-gradient(135deg, ${highlightColor}, transparent);`;
+      }
+    }
+
     const bw = (thick: boolean) => thick ? '3px' : '1px';
     const bc = (thick: boolean) => thick ? thickBorder : thinBorder;
 
     return `
       background-color: ${bg};
+      ${extraBg}
       border-top: ${bw(borders.top)} solid ${bc(borders.top)};
       border-right: ${bw(borders.right)} solid ${bc(borders.right)};
       border-bottom: ${bw(borders.bottom)} solid ${bc(borders.bottom)};
@@ -192,9 +256,10 @@
         {@const isLabel = region && isLabelCell(row, col, region)}
         {@const label = region ? getRegionLabel(region) : ''}
         {@const solVal = getSolutionValue(row, col)}
+        {@const isHighlighted = isDominoHighlighted(row, col)}
 
         <div
-          class="puzzle-cell {cellSizeClass} relative flex items-center justify-center"
+          class="puzzle-cell {cellSizeClass} relative flex items-center justify-center {isHighlighted && selectedDominoIndex !== null ? 'ring-2 ring-inset ring-yellow-400 z-10' : ''}"
           style={getCellStyle(row, col)}
         >
           <!-- Region label (top-left corner) -->
