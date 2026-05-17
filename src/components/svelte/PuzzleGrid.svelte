@@ -156,7 +156,9 @@
     if (!showSolution || !sol) return undefined;
     if (row < sol.length && col < sol[row].length) {
       const val = sol[row][col];
-      return Array.isArray(val) ? val[0] : val;
+      const resolved = Array.isArray(val) ? val[0] : val;
+      // -1 is a sentinel value for empty/uncovered cells – don't display it
+      return resolved === -1 ? undefined : resolved;
     }
     return undefined;
   }
